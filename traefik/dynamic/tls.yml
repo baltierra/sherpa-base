@@ -1,0 +1,5 @@
+# TLS policy applied to every router on the websecure entrypoint.
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12

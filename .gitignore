@@ -14,6 +14,20 @@
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
+# Secrets: never commit. Real values live in /media/volume/sherpa-data/_secrets/
+.env
+*.env
+!.env.example
+_secrets/
+acme.json
+*.pem
+*.key
+
+# Editor / OS noise
+.DS_Store
+*.swp
+
+
 # Mono auto generated files
 mono_crash.*
 

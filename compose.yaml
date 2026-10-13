@@ -1,0 +1,147 @@
+# sherpa-base: shared infrastructure for every Sherpa app on this VM.
+#
+#   traefik       reverse proxy + automatic Let's Encrypt certificates (HTTP-01)
+#   socket-proxy  read-only gate between Traefik and the Docker socket
+#   postgres      PostgreSQL 17 + pgvector; one database + role per Sherpa
+#   whoami        optional smoke-test service (profile "test")
+#
+# Run it through ./scripts/compose.sh (adds --env-file and guards the volume mount).
+
+name: sherpa-base
+
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    container_name: sherpa-socket-proxy
+    restart: unless-stopped
+    environment:
+      # Read-only API subset Traefik's Docker provider needs. Everything not
+      # listed stays denied, and POST=0 blocks every write call.
+      CONTAINERS: 1
+      NETWORKS: 1
+      INFO: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket
+    security_opt:
+      - no-new-privileges:true
+
+  traefik:
+    image: traefik:v3.7.14
+    container_name: sherpa-traefik
+    restart: unless-stopped
+    depends_on:
+      - socket-proxy
+    command:
+      - --global.checkNewVersion=false
+      - --global.sendAnonymousUsage=false
+      - --log.level=INFO
+      - --accessLog=true
+      - --accessLog.format=json
+      # Dashboard/API: served on :8080, published to the VM's loopback only (see ports).
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --ping=true
+      # Providers: Docker labels (via the socket proxy) + static files for shared middlewares/TLS.
+      - --providers.docker=true
+      - --providers.docker.endpoint=tcp://socket-proxy:2375
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.network=sherpa-web
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      # Entrypoints: all plain HTTP is redirected to HTTPS.
+      - --entryPoints.traefik.address=:8080
+      - --entryPoints.web.address=:80
+      - --entryPoints.web.http.redirections.entryPoint.to=websecure
+      - --entryPoints.web.http.redirections.entryPoint.scheme=https
+      - --entryPoints.websecure.address=:443
+      - --entryPoints.websecure.http.tls.certResolver=letsencrypt
+      # Let's Encrypt, HTTP-01: one certificate per hostname, issued on first request.
+      - --certificatesResolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL is not set}
+      - --certificatesResolvers.letsencrypt.acme.caServer=${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
+      - --certificatesResolvers.letsencrypt.acme.storage=/acme/acme.json
+      - --certificatesResolvers.letsencrypt.acme.httpChallenge.entryPoint=web
+    ports:
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:8080:8080" # dashboard: reach it with an SSH tunnel, never publicly
+    volumes:
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      # Certificates live on the persistent volume so a VM rebuild does not
+      # re-issue everything. create_host_path:false makes Docker fail loudly
+      # instead of silently creating the directory on the boot disk if the
+      # volume is not mounted.
+      - type: bind
+        source: ${DATA_ROOT:?DATA_ROOT is not set}/traefik
+        target: /acme
+        bind:
+          create_host_path: false
+    networks:
+      - sherpa-web
+      - socket
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: sherpa-postgres
+    restart: unless-stopped
+    shm_size: 2gb # parallel queries use /dev/shm; Docker's 64 MB default is too small
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set}
+      POSTGRES_INITDB_ARGS: --data-checksums
+      TZ: ${TZ:-America/Chicago}
+    ports:
+      # Loopback only: for psql/DBeaver through an SSH tunnel. Apps use the
+      # sherpa-db network and never need this.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT}/pgvector/data
+        target: /var/lib/postgresql/data
+        bind:
+          create_host_path: false
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+    networks:
+      - sherpa-db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  whoami:
+    image: traefik/whoami:v1.12.0
+    container_name: sherpa-whoami
+    profiles: ["test"]
+    restart: "no"
+    networks:
+      - sherpa-web
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=sherpa-web
+      - traefik.http.routers.whoami.rule=Host(`whoami.${BASE_DOMAIN:?BASE_DOMAIN is not set}`)
+      - traefik.http.routers.whoami.entrypoints=websecure
+      - traefik.http.routers.whoami.tls.certresolver=letsencrypt
+      - traefik.http.routers.whoami.middlewares=secure-headers@file
+
+networks:
+  # Created once by bootstrap.sh so app stacks can join them from their own compose files.
+  sherpa-web:
+    external: true
+  sherpa-db:
+    external: true
+  # Private link between Traefik and the socket proxy; no outside access.
+  socket:
+    internal: true

@@ -1,0 +1,58 @@
+# Pattern for ANY Sherpa app (poc, des, tim, ...).
+# Copy to /media/volume/sherpa-data/<app>/compose.yaml, replace "des" and the domain, then:
+#
+#   cd /media/volume/sherpa-data/des
+#   docker compose --env-file /media/volume/sherpa-data/_secrets/apps/des.db.env up -d
+#
+# Once per app, before the first start (from /opt/sherpa-base):
+#   ./scripts/db-create-app.sh des
+#
+# Conventions
+#   * Router and service names in labels are prefixed with the app name: they are
+#     global across the whole VM, and two apps using "webui" would collide.
+#   * Container names are <app>-<service>.
+#   * Only the container that serves HTTP joins sherpa-web; only containers that
+#     talk to PostgreSQL join sherpa-db. Anything else (the POC's Weaviate, say)
+#     lives on the app's own private network and is never exposed.
+#   * App files and data live under /media/volume/sherpa-data/<app>/.
+
+name: des
+
+services:
+  webui:
+    image: ${APP_IMAGE:?set APP_IMAGE in the app folder .env, e.g. a pinned Open WebUI tag or a ghcr.io/<you>/<image>:<tag>}
+    container_name: des-webui
+    restart: unless-stopped
+    environment:
+      # DATABASE_URL comes from the --env-file above (written by db-create-app.sh).
+      # Open WebUI example; confirm variable names in the docs of the version you pin:
+      #   DATABASE_URL: ${DATABASE_URL:?run scripts/db-create-app.sh first}
+      #   VECTOR_DB: pgvector
+      #   PGVECTOR_DB_URL: ${DATABASE_URL}
+      TZ: America/Chicago
+    volumes:
+      - type: bind
+        source: /media/volume/sherpa-data/des/data
+        target: /app/backend/data # container path differs per app
+        bind:
+          create_host_path: false # fail loudly if the volume is not mounted
+    networks:
+      - sherpa-web
+      - sherpa-db
+      # - private   # uncomment for app-only services (see the bottom of this file)
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=sherpa-web
+      - traefik.http.routers.des.rule=Host(`des.sherpa.ncsa.illinois.edu`)
+      - traefik.http.routers.des.entrypoints=websecure
+      - traefik.http.routers.des.tls.certresolver=letsencrypt
+      - traefik.http.routers.des.middlewares=secure-headers@file
+      - traefik.http.services.des.loadbalancer.server.port=8080 # port the app listens on inside the container
+
+networks:
+  sherpa-web:
+    external: true
+  sherpa-db:
+    external: true
+  # private:            # app-specific network for services only this app may reach
+  #   internal: true

@@ -1,0 +1,12 @@
+# Shared middlewares. Apps opt in with the label:
+#   traefik.http.routers.<app>.middlewares=secure-headers@file
+http:
+  middlewares:
+    secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: false
+        stsPreload: false
+        contentTypeNosniff: true
+        referrerPolicy: strict-origin-when-cross-origin
+        customFrameOptionsValue: SAMEORIGIN
