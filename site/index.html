@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Sherpa: LLM assistants for large scientific projects</title>
+<meta name="description" content="Data Sherpa is a family of LLM-based chatbots that help scientists analyze the data and the scientific knowledge produced by large research projects.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%AD%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg-top: #0a0f24;
+    --bg-bottom: #1b1245;
+    --text: #e8eaf6;
+    --muted: #a9b0d0;
+    --accent-1: #7dd3fc;
+    --accent-2: #c4b5fd;
+    --accent-3: #fcd34d;
+    --ok: #4ade80;
+    --card: rgba(10, 15, 36, .55);
+    --line: rgba(196, 181, 253, .25);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; background: var(--bg-bottom); }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 32px 20px 48px;
+    text-align: center;
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    background:
+      radial-gradient(2px 2px at 12% 3%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 27% 9%, #dbe4ff, transparent),
+      radial-gradient(1.5px 1.5px at 41% 2%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 58% 7%, #dbe4ff, transparent),
+      radial-gradient(1.5px 1.5px at 73% 4%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 86% 11%, #dbe4ff, transparent),
+      radial-gradient(2px 2px at 93% 6%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 6% 23%, #fff, transparent),
+      radial-gradient(2px 2px at 95% 31%, #dbe4ff, transparent),
+      radial-gradient(1.5px 1.5px at 3% 44%, #dbe4ff, transparent),
+      radial-gradient(1.5px 1.5px at 97% 52%, #fff, transparent),
+      radial-gradient(2px 2px at 5% 63%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 94% 71%, #dbe4ff, transparent),
+      radial-gradient(1.5px 1.5px at 8% 82%, #dbe4ff, transparent),
+      radial-gradient(2px 2px at 91% 90%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 4% 96%, #fff, transparent),
+      radial-gradient(ellipse at 50% 100%, rgba(196, 181, 253, .25), transparent 55%),
+      linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  section { margin-top: 56px; }
+
+  /* Hero */
+  .hero {
+    padding: 56px 32px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--card);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+  }
+  .eyebrow {
+    margin: 0 0 12px;
+    font-size: .8rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 {
+    margin: 0 0 20px;
+    font-size: clamp(2.4rem, 8vw, 4rem);
+    line-height: 1.1;
+    background: linear-gradient(90deg, var(--accent-1), var(--accent-2) 55%, var(--accent-3));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .lead { max-width: 640px; margin: 0 auto 8px; font-size: 1.15rem; }
+  h2 { margin: 0 0 8px; font-size: clamp(1.4rem, 4vw, 1.9rem); line-height: 1.25; }
+  .sub { max-width: 640px; margin: 0 auto 28px; color: var(--muted); }
+  p { margin: 0 0 16px; }
+
+  /* How it works */
+  .steps, .grid {
+    display: grid;
+    gap: 16px;
+    text-align: center;
+  }
+  .steps { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .grid { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .card {
+    padding: 24px 20px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--card);
+    backdrop-filter: blur(6px);
+  }
+  .card h3 { margin: 0 0 4px; font-size: 1.15rem; }
+  .card p { margin: 0; font-size: .95rem; color: var(--muted); }
+  .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-bottom: 10px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    font-weight: 600;
+    color: var(--accent-3);
+  }
+
+  /* Sherpas */
+  .sherpa .tag {
+    margin-bottom: 10px;
+    font-size: .75rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent-1);
+  }
+  .sherpa .url {
+    display: block;
+    margin-top: 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .78rem;
+    color: var(--text);
+    overflow-wrap: anywhere;
+  }
+  a.sherpa { color: inherit; text-decoration: none; transition: transform .15s, border-color .15s; }
+  a.sherpa:hover, a.sherpa:focus-visible { transform: translateY(-3px); border-color: var(--accent-2); outline: none; }
+  .badge {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 3px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .15);
+    background: rgba(255, 255, 255, .05);
+    font-size: .8rem;
+    color: var(--muted);
+  }
+  .badge.dev { color: var(--accent-3); border-color: rgba(252, 211, 77, .4); }
+  .card.future { border-style: dashed; grid-column: 1 / -1; }
+
+  /* Architecture */
+  .stack { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .layer {
+    width: 100%;
+    max-width: 620px;
+    padding: 16px 20px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+  }
+  .layer strong { display: block; color: var(--text); }
+  .layer span { font-size: .92rem; color: var(--muted); }
+  .arrow { height: 26px; line-height: 26px; color: var(--accent-2); font-size: 1.1rem; }
+  .note {
+    max-width: 640px;
+    margin: 24px auto 0;
+    font-size: .95rem;
+    color: var(--muted);
+  }
+
+  footer { margin-top: 56px; font-size: .9rem; color: var(--muted); }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(255, 255, 255, .05);
+    text-align: left;
+  }
+  .dot {
+    width: 9px;
+    height: 9px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 10px var(--ok);
+  }
+  code { color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  @media (max-width: 480px) { .hero { padding: 40px 20px; } }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } a.sherpa { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Research platform</p>
+    <h1>Data Sherpa</h1>
+    <p class="lead">
+      LLM-based chatbots that help scientists analyze the data and the scientific knowledge
+      produced by large research projects.
+    </p>
+  </header>
+
+  <section>
+    <h2>One idea, many Sherpas</h2>
+    <p class="sub">
+      Each Sherpa is a conversational assistant dedicated to a single scientific project.
+      They all share the same foundation, so a new one can be launched on its own subdomain.
+    </p>
+    <div class="steps">
+      <div class="card">
+        <div class="num">1</div>
+        <h3>Ask</h3>
+        <p>Scientists pose questions about a project in plain language.</p>
+      </div>
+      <div class="card">
+        <div class="num">2</div>
+        <h3>Retrieve</h3>
+        <p>The Sherpa looks up relevant material from the project's data and knowledge, indexed in a vector database.</p>
+      </div>
+      <div class="card">
+        <div class="num">3</div>
+        <h3>Answer</h3>
+        <p>A language model composes the response using what was retrieved.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The Sherpas</h2>
+    <p class="sub">Every project gets its own address under <code>sherpa.ncsa.illinois.edu</code>.</p>
+    <div class="grid">
+
+      <a class="card sherpa" href="https://des.sherpa.ncsa.illinois.edu">
+        <div class="tag">Dark Energy Survey</div>
+        <h3>SherpaDES</h3>
+        <p>An assistant for the data and scientific knowledge produced by the Dark Energy Survey in its 10 years of operation.</p>
+        <span class="url">des.sherpa.ncsa.illinois.edu</span>
+        <span class="badge dev">In development</span>
+      </a>
+
+      <div class="card sherpa">
+        <div class="tag">Terahertz Intensity Mapping</div>
+        <h3>SherpaTIM</h3>
+        <p>An assistant for the Terahertz Intensity Mapping (TIM) project.</p>
+        <span class="url">tim.sherpa.ncsa.illinois.edu</span>
+        <span class="badge">Coming soon</span>
+      </div>
+
+      <div class="card sherpa">
+        <div class="tag">Proof of concept</div>
+        <h3>SherpaPOC</h3>
+        <p>The original prototype where the approach was first tested, before the move to Open WebUI.</p>
+        <span class="url">poc.sherpa.ncsa.illinois.edu</span>
+        <span class="badge">Coming soon</span>
+      </div>
+
+      <div class="card sherpa future">
+        <div class="tag">Next</div>
+        <h3>Your project here</h3>
+        <p>New Sherpas are added as new projects join, each with its own subdomain.</p>
+        <span class="url">&lt;project&gt;.sherpa.ncsa.illinois.edu</span>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>How it is built</h2>
+    <p class="sub">A shared base serves every Sherpa, so adding a project does not mean rebuilding the platform.</p>
+    <div class="stack">
+      <div class="layer">
+        <strong>Traefik</strong>
+        <span>HTTPS with automatic Let's Encrypt certificates, routing each subdomain to the right Sherpa</span>
+      </div>
+      <div class="arrow" aria-hidden="true">&#9660;</div>
+      <div class="layer">
+        <strong>Sherpa apps on Open WebUI</strong>
+        <span>One containerized app per project, each with its own database and data folder</span>
+      </div>
+      <div class="arrow" aria-hidden="true">&#9660;</div>
+      <div class="layer">
+        <strong>PostgreSQL with pgvector</strong>
+        <span>One database service for all Sherpas: application data, plus vectors and embeddings for retrieval</span>
+      </div>
+      <div class="arrow" aria-hidden="true">&#9660;</div>
+      <div class="layer">
+        <strong>Jetstream2 virtual machine with a persistent volume</strong>
+        <span>Everything runs in Docker on one cloud VM; apps and databases live on a volume that outlasts the VM</span>
+      </div>
+    </div>
+    <p class="note">
+      The base configuration is scripted, so the whole environment can be recreated on a fresh
+      virtual machine. App images are built separately and published to a container registry.
+    </p>
+  </section>
+
+  <footer>
+    <div class="status">
+      <span class="dot" aria-hidden="true"></span>
+      <span><code>sherpa.ncsa.illinois.edu</code> is served over HTTPS through Traefik</span>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

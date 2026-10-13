@@ -135,6 +135,26 @@ services:
       - traefik.http.routers.whoami.entrypoints=websecure
       - traefik.http.routers.whoami.tls.certresolver=letsencrypt
       - traefik.http.routers.whoami.middlewares=secure-headers@file
+  # Public landing page for the root domain (sherpa.ncsa.illinois.edu).
+  # Static files from ./site; edit them, `git pull` on the VM, no restart needed. 
+  landing:
+    image: nginx:1.30.5-alpine
+    container_name: sherpa-landing
+    restart: unless-stopped
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    networks:
+      - sherpa-web
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=sherpa-web
+      - traefik.http.routers.landing.rule=Host(`${BASE_DOMAIN:?BASE_DOMAIN is not set}`)
+      - traefik.http.routers.landing.entrypoints=websecure
+      - traefik.http.routers.landing.tls.certresolver=letsencrypt
+      - traefik.http.routers.landing.middlewares=secure-headers@file
+      - traefik.http.services.landing.loadbalancer.server.port=80
 
 networks:
   # Created once by bootstrap.sh so app stacks can join them from their own compose files.
